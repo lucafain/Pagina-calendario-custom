@@ -420,6 +420,11 @@ function renderCalendar() {
 
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const today = new Date();
+  const todayReference = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate()
+  );
   for (let day = 1; day <= daysInMonth; day += 1) {
     const dateKey = buildDateKey(year, month, day);
     const cell = document.createElement("div");
@@ -428,6 +433,11 @@ function renderCalendar() {
     cell.setAttribute("role", "button");
     cell.setAttribute("aria-label", buildCellAriaLabel(year, month, day));
     cell.tabIndex = 0;
+
+    const cellDate = new Date(year, month, day);
+    if (cellDate < todayReference) {
+      cell.classList.add("past-day");
+    }
 
     if (
       day === today.getDate() &&
@@ -459,10 +469,12 @@ function renderCalendar() {
       });
     }
 
+    const resetButton = buildDayResetButton(dateKey);
     const dayNumber = document.createElement("span");
     dayNumber.className = "day-number";
     dayNumber.textContent = day;
 
+    cell.appendChild(resetButton);
     cell.appendChild(eventsContainer);
     cell.appendChild(dayNumber);
 
@@ -475,6 +487,33 @@ function renderCalendar() {
 
 function buildDateKey(year, monthIndex, day) {
   return `${year}-${String(monthIndex + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function buildDayResetButton(dateKey) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "day-reset-button";
+  button.setAttribute("aria-label", `Limpiar eventos del ${formatDateLabel(dateKey)}`);
+
+  const icon = document.createElement("span");
+  icon.className = "reset-icon";
+  icon.setAttribute("aria-hidden", "true");
+  icon.textContent = "⟳";
+
+  const srLabel = document.createElement("span");
+  srLabel.className = "sr-only";
+  srLabel.textContent = "Reiniciar día";
+
+  button.appendChild(icon);
+  button.appendChild(srLabel);
+
+  button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    event.preventDefault();
+    clearEventsForDate(dateKey);
+  });
+
+  return button;
 }
 
 function buildCellAriaLabel(year, monthIndex, day) {
@@ -531,6 +570,10 @@ function handleEventSubmit(event) {
 }
 
 function handleDayKeydown(event, dateKey) {
+  if (event.target !== event.currentTarget) {
+    return;
+  }
+
   if (event.key === "Enter" || event.key === " ") {
     event.preventDefault();
     openEventModal(dateKey);
@@ -547,6 +590,15 @@ function formatDateLabel(dateKey) {
   const [year, month, day] = dateKey.split("-").map(Number);
   const readableMonth = monthNames[month - 1] || "";
   return `${day} de ${readableMonth} de ${year}`;
+}
+
+function clearEventsForDate(dateKey) {
+  if (!state.events[dateKey] || state.events[dateKey].length === 0) {
+    return;
+  }
+
+  delete state.events[dateKey];
+  renderCalendar();
 }
 
 function analyzePreferences(preferences) {
