@@ -13,6 +13,54 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
+    <div
+      id="session-overlay"
+      class="session-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="session-title"
+    >
+      <form id="session-form" class="session-card" novalidate>
+        <h2 id="session-title">Antes de empezar…</h2>
+        <p>
+          Contanos tu nombre y desde dónde te conectás para adaptar el calendario
+          y guardar tu experiencia.
+        </p>
+        <label for="session-name">¿Cómo te llamás?</label>
+        <input
+          type="text"
+          id="session-name"
+          name="name"
+          autocomplete="name"
+          required
+          list="known-users"
+        />
+        <datalist id="known-users"></datalist>
+        <fieldset class="device-options">
+          <legend>¿Desde dónde estás entrando?</legend>
+          <label>
+            <input type="radio" name="device" value="mobile" required />
+            Celular
+          </label>
+          <label>
+            <input type="radio" name="device" value="desktop" />
+            Computadora
+          </label>
+        </fieldset>
+        <label for="sync-input" class="sync-label">
+          ¿Tenés un código de sincronización? Pegalo acá (opcional)
+        </label>
+        <textarea
+          id="sync-input"
+          name="sync"
+          rows="2"
+          placeholder="Pegá aquí tu código para recuperar tu calendario"
+        ></textarea>
+        <p id="session-error" class="session-error" role="alert" aria-live="assertive"></p>
+        <button type="submit" class="primary-button">Entrar al calendario</button>
+      </form>
+    </div>
+
     <main class="app">
       <header class="hero">
         <h1>Diseña tu calendario soñado</h1>
@@ -22,6 +70,32 @@
           generará al instante!
         </p>
       </header>
+
+      <section class="session-info hidden" id="session-info" aria-live="polite">
+        <div class="card session-summary">
+          <div class="session-summary-header">
+            <h2 id="session-greeting">¡Hola!</h2>
+            <button type="button" class="link-button" id="switch-user">
+              Cambiar de persona
+            </button>
+          </div>
+          <p id="session-device" class="session-device"></p>
+          <p id="session-theme" class="session-theme"></p>
+          <div class="sync-area">
+            <p class="sync-description">
+              Compartí este código si querés continuar en otro dispositivo. Solo
+              tenés que pegarlo en la pantalla de ingreso.
+            </p>
+            <div class="sync-code-box">
+              <code id="sync-code" tabindex="0"></code>
+              <button type="button" class="secondary-button" id="copy-sync-button">
+                Copiar código
+              </button>
+            </div>
+            <p id="sync-feedback" class="sync-feedback" aria-live="polite"></p>
+          </div>
+        </div>
+      </section>
 
       <section class="preferences" aria-labelledby="preferences-title">
         <div class="card">

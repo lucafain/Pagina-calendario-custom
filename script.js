@@ -13,6 +13,21 @@ const heroSection = document.querySelector(".hero");
 const preferencesSection = document.querySelector(".preferences");
 const suggestionsSection = document.querySelector(".suggestions");
 
+const sessionOverlay = document.getElementById("session-overlay");
+const sessionForm = document.getElementById("session-form");
+const sessionNameInput = document.getElementById("session-name");
+const knownUsersList = document.getElementById("known-users");
+const syncInput = document.getElementById("sync-input");
+const sessionError = document.getElementById("session-error");
+const sessionInfoSection = document.getElementById("session-info");
+const sessionGreeting = document.getElementById("session-greeting");
+const sessionDeviceLabel = document.getElementById("session-device");
+const sessionThemeLabel = document.getElementById("session-theme");
+const syncCodeElement = document.getElementById("sync-code");
+const copySyncButton = document.getElementById("copy-sync-button");
+const syncFeedback = document.getElementById("sync-feedback");
+const switchUserButton = document.getElementById("switch-user");
+
 const eventModal = document.getElementById("event-modal");
 const eventForm = document.getElementById("event-form");
 const eventTitleInput = document.getElementById("event-title");
@@ -195,6 +210,15 @@ const FONT_PREFERENCES = [
   },
 ];
 
+const STORAGE_KEY = "customCalendar.users";
+const LAST_USER_KEY = "customCalendar.lastUser";
+
+const deviceInputs = sessionForm
+  ? Array.from(sessionForm.querySelectorAll('input[name="device"]'))
+  : [];
+
+let syncFeedbackTimeout = null;
+
 const state = {
   suggestions: [],
   currentDate: new Date(),
@@ -203,6 +227,7 @@ const state = {
   events: {},
   themeLocked: false,
   activeDateKey: null,
+  profile: null,
 };
 
 styleForm.addEventListener("submit", handleFormSubmit);
@@ -217,10 +242,20 @@ eventModal.addEventListener("click", (event) => {
 });
 document.addEventListener("keydown", handleGlobalKeydown);
 
+sessionForm?.addEventListener("submit", handleSessionSubmit);
+sessionNameInput?.addEventListener("input", handleNameInputChange);
+copySyncButton?.addEventListener("click", handleCopySyncCode);
+switchUserButton?.addEventListener("click", () => {
+  syncInput.value = "";
+  showSessionOverlay(true);
+});
+
 applyTheme(DEFAULT_THEME);
 renderCalendar();
 calendarThemeLabel.textContent = `${DEFAULT_THEME.name} (base)`;
 calendarContainer.classList.remove("hidden");
+
+initializeSession();
 
 async function handleFormSubmit(event) {
   event.preventDefault();
@@ -319,14 +354,9 @@ function highlightSelectedCard(selectedNode) {
 function finalizeThemeSelection() {
   if (state.themeLocked) return;
   state.themeLocked = true;
-  heroSection?.classList.add("collapsed");
-  preferencesSection?.classList.add("collapsed");
-  suggestionsSection?.classList.add("collapsed");
-  if (emptyState) {
-    emptyState.textContent = "";
-  }
-  suggestionList.innerHTML = "";
+  updateThemeLockUI();
   styleForm.reset();
+  persistUserState();
 }
 
 function applyTheme(theme) {
@@ -346,10 +376,17 @@ function applyTheme(theme) {
     root.setProperty("--font-family", tokens.font);
   }
 
-  calendarThemeLabel.textContent = theme.name || "Tema personalizado";
+  const themeName = theme.name || "Tema personalizado";
+  const shouldShowBase = themeName === DEFAULT_THEME.name && !state.themeLocked;
+  calendarThemeLabel.textContent = shouldShowBase
+    ? `${themeName} (base)`
+    : themeName;
   calendarContainer.classList.remove("hidden");
   document.body.classList.toggle("auto-dark", prefersDarkPalette(tokens));
   renderCalendar();
+  if (state.profile) {
+    persistUserState();
+  }
 }
 
 function withFallbackTokens(tokens) {
@@ -531,6 +568,9 @@ function getEventsForDate(dateKey) {
 }
 
 function openEventModal(dateKey) {
+  if (!state.profile) {
+    return;
+  }
   state.activeDateKey = dateKey;
   eventForm.reset();
   eventModal.classList.remove("hidden");
@@ -566,6 +606,7 @@ function handleEventSubmit(event) {
   state.events[state.activeDateKey].sort((a, b) => a.time.localeCompare(b.time));
 
   renderCalendar();
+  persistUserState();
   closeEventModal();
 }
 
@@ -599,6 +640,7 @@ function clearEventsForDate(dateKey) {
 
   delete state.events[dateKey];
   renderCalendar();
+  persistUserState();
 }
 
 function analyzePreferences(preferences) {
@@ -1043,4 +1085,372 @@ function hexToRgba(hex, alpha) {
 
 function clampColor(value) {
   return Math.min(255, Math.max(0, value));
+}
+
+function initializeSession() {
+  updateThemeLockUI();
+  const users = getStoredUsers();
+  populateNameSuggestions(users);
+
+  const lastUser = localStorage.getItem(LAST_USER_KEY);
+  const defaultDevice = detectDefaultDevice();
+
+  if (sessionNameInput) {
+    if (lastUser) {
+      const stored = users[normalizeName(lastUser)];
+      sessionNameInput.value = stored?.name || lastUser;
+      selectDeviceRadio(stored?.profile?.device || defaultDevice);
+    } else {
+      selectDeviceRadio(defaultDevice);
+    }
+  }
+
+  applyDeviceClass(defaultDevice);
+  showSessionOverlay(Boolean(lastUser));
+}
+
+function handleSessionSubmit(event) {
+  event.preventDefault();
+  clearSessionError();
+
+  if (!sessionForm) return;
+
+  const name = sessionNameInput?.value.trim();
+  if (!name) {
+    showSessionError("Necesitamos tu nombre para guardar tu calendario.");
+    sessionNameInput?.focus();
+    return;
+  }
+
+  const device = getSelectedDevice();
+  if (!device) {
+    showSessionError("Elegí si estás desde un celular o una computadora.");
+    return;
+  }
+
+  const syncCode = syncInput?.value.trim();
+  const users = getStoredUsers();
+  const stored = users[normalizeName(name)];
+  let snapshot = stored || {};
+
+  if (syncCode) {
+    const decoded = decodeSyncSnapshot(syncCode);
+    if (!decoded) {
+      showSessionError("El código de sincronización no es válido.");
+      return;
+    }
+    snapshot = decoded;
+  }
+
+  state.profile = {
+    name,
+    device,
+  };
+
+  applyDeviceClass(device);
+  hydrateStateFromSnapshot(snapshot);
+  applyTheme(state.selectedTheme || DEFAULT_THEME);
+  updateThemeLockUI();
+  hideSessionOverlay();
+  updateSessionInfo();
+}
+
+function handleNameInputChange() {
+  if (!sessionNameInput) return;
+  const value = sessionNameInput.value.trim();
+  if (!value) return;
+  const users = getStoredUsers();
+  const record = users[normalizeName(value)];
+  if (record?.profile?.device) {
+    selectDeviceRadio(record.profile.device);
+  }
+}
+
+function hydrateStateFromSnapshot(snapshot) {
+  const safeEvents = deepCloneEvents(snapshot?.events || {});
+  const theme = cloneTheme(snapshot?.selectedTheme) || DEFAULT_THEME;
+  state.events = safeEvents;
+  state.selectedTheme = theme;
+  state.themeLocked = Boolean(snapshot?.themeLocked);
+}
+
+function showSessionOverlay(prefillCurrent = false) {
+  if (!sessionOverlay) return;
+  sessionOverlay.classList.remove("hidden");
+  sessionOverlay.setAttribute("aria-hidden", "false");
+  document.body.classList.add("session-locked");
+  clearSessionError();
+
+  if (prefillCurrent && state.profile?.name && sessionNameInput) {
+    sessionNameInput.value = state.profile.name;
+    selectDeviceRadio(state.profile.device || detectDefaultDevice());
+  } else if (sessionNameInput && !sessionNameInput.value) {
+    selectDeviceRadio(detectDefaultDevice());
+  }
+
+  window.setTimeout(() => sessionNameInput?.focus(), 80);
+}
+
+function hideSessionOverlay() {
+  if (!sessionOverlay) return;
+  sessionOverlay.classList.add("hidden");
+  sessionOverlay.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("session-locked");
+  clearSessionError();
+  if (syncInput) {
+    syncInput.value = "";
+  }
+}
+
+function showSessionError(message) {
+  if (!sessionError) return;
+  sessionError.textContent = message;
+}
+
+function clearSessionError() {
+  if (!sessionError) return;
+  sessionError.textContent = "";
+}
+
+function selectDeviceRadio(device) {
+  if (!deviceInputs.length) return;
+  deviceInputs.forEach((input) => {
+    input.checked = input.value === device;
+  });
+}
+
+function getSelectedDevice() {
+  const selected = deviceInputs.find((input) => input.checked);
+  return selected ? selected.value : null;
+}
+
+function detectDefaultDevice() {
+  if (typeof window.matchMedia !== "function") {
+    return "desktop";
+  }
+  return window.matchMedia("(max-width: 768px)").matches ? "mobile" : "desktop";
+}
+
+function applyDeviceClass(device) {
+  const className = device === "mobile" ? "device-mobile" : "device-desktop";
+  document.body.classList.remove("device-mobile", "device-desktop");
+  document.body.classList.add(className);
+  if (state.profile) {
+    state.profile.device = device;
+  }
+}
+
+function normalizeName(name) {
+  return name.trim().toLowerCase();
+}
+
+function getStoredUsers() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed;
+    }
+  } catch (error) {
+    console.error("No se pudieron leer los perfiles guardados", error);
+  }
+  return {};
+}
+
+function saveUsers(users) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(users));
+  } catch (error) {
+    console.error("No se pudo guardar el perfil", error);
+  }
+}
+
+function persistUserState() {
+  if (!state.profile?.name) {
+    return;
+  }
+
+  const key = normalizeName(state.profile.name);
+  const users = getStoredUsers();
+  users[key] = {
+    name: state.profile.name,
+    profile: { name: state.profile.name, device: state.profile.device },
+    events: deepCloneEvents(state.events),
+    selectedTheme: cloneTheme(state.selectedTheme),
+    themeLocked: state.themeLocked,
+  };
+
+  saveUsers(users);
+  localStorage.setItem(LAST_USER_KEY, state.profile.name);
+  populateNameSuggestions(users);
+  updateSessionInfo();
+}
+
+function populateNameSuggestions(users = getStoredUsers()) {
+  if (!knownUsersList) return;
+  knownUsersList.innerHTML = "";
+  const names = Object.values(users)
+    .map((entry) => entry?.name || entry?.profile?.name)
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b));
+
+  const unique = [...new Set(names)];
+  unique.forEach((name) => {
+    const option = document.createElement("option");
+    option.value = name;
+    knownUsersList.appendChild(option);
+  });
+}
+
+function deepCloneEvents(events) {
+  return JSON.parse(JSON.stringify(events || {}));
+}
+
+function cloneTheme(theme) {
+  if (!theme) return null;
+  return JSON.parse(JSON.stringify(theme));
+}
+
+function generateSyncCode() {
+  if (!state.profile?.name) {
+    return "";
+  }
+
+  const snapshot = {
+    v: 1,
+    name: state.profile.name,
+    device: state.profile.device,
+    events: deepCloneEvents(state.events),
+    selectedTheme: cloneTheme(state.selectedTheme),
+    themeLocked: state.themeLocked,
+  };
+
+  return encodeSnapshot(snapshot);
+}
+
+function encodeSnapshot(payload) {
+  try {
+    const json = JSON.stringify(payload);
+    const bytes = new TextEncoder().encode(json);
+    let binary = "";
+    bytes.forEach((byte) => {
+      binary += String.fromCharCode(byte);
+    });
+    return btoa(binary);
+  } catch (error) {
+    console.error("No se pudo generar el código de sincronización", error);
+    return "";
+  }
+}
+
+function decodeSyncSnapshot(code) {
+  if (!code) return null;
+  try {
+    const sanitized = code.replace(/\s+/g, "");
+    const binary = atob(sanitized);
+    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+    const json = new TextDecoder().decode(bytes);
+    const parsed = JSON.parse(json);
+    if (parsed && typeof parsed === "object") {
+      return parsed;
+    }
+  } catch (error) {
+    console.error("No se pudo decodificar el código", error);
+  }
+  return null;
+}
+
+function updateSessionInfo() {
+  if (!sessionInfoSection) return;
+
+  if (!state.profile?.name) {
+    sessionInfoSection.classList.add("hidden");
+    return;
+  }
+
+  sessionInfoSection.classList.remove("hidden");
+  sessionGreeting.textContent = `¡Hola, ${state.profile.name}!`;
+  sessionDeviceLabel.textContent =
+    state.profile.device === "mobile"
+      ? "Estás usando la versión adaptada para celular."
+      : "Estás usando la versión adaptada para computadora.";
+  const themeName = state.selectedTheme?.name || "Tema personalizado";
+  sessionThemeLabel.textContent = `Tu estilo actual: ${themeName}`;
+
+  const code = generateSyncCode();
+  syncCodeElement.textContent = code;
+  if (copySyncButton) {
+    copySyncButton.disabled = !code;
+  }
+}
+
+function updateThemeLockUI() {
+  if (state.themeLocked) {
+    heroSection?.classList.add("collapsed");
+    preferencesSection?.classList.add("collapsed");
+    suggestionsSection?.classList.add("collapsed");
+    suggestionList.innerHTML = "";
+    if (emptyState) {
+      emptyState.textContent = "";
+      emptyState.classList.remove("error", "loading");
+    }
+  } else {
+    heroSection?.classList.remove("collapsed");
+    preferencesSection?.classList.remove("collapsed");
+    suggestionsSection?.classList.remove("collapsed");
+    if (emptyState) {
+      updateStatus("Ingresá tus preferencias para ver propuestas.");
+    }
+  }
+}
+
+function handleCopySyncCode() {
+  if (!syncCodeElement) return;
+  const code = syncCodeElement.textContent.trim();
+  if (!code) {
+    showSyncFeedback("Todavía no hay nada para copiar.");
+    return;
+  }
+
+  const copyPromise = navigator.clipboard
+    ? navigator.clipboard.writeText(code)
+    : fallbackCopyText();
+
+  Promise.resolve(copyPromise)
+    .then(() => {
+      showSyncFeedback("Código copiado.");
+    })
+    .catch(() => {
+      showSyncFeedback("No se pudo copiar automáticamente. Copialo manualmente.");
+    });
+}
+
+function fallbackCopyText() {
+  const range = document.createRange();
+  range.selectNodeContents(syncCodeElement);
+  const selection = window.getSelection();
+  selection.removeAllRanges();
+  selection.addRange(range);
+  try {
+    document.execCommand("copy");
+    selection.removeAllRanges();
+    return Promise.resolve();
+  } catch (error) {
+    selection.removeAllRanges();
+    return Promise.reject(error);
+  }
+}
+
+function showSyncFeedback(message) {
+  if (!syncFeedback) return;
+  syncFeedback.textContent = message;
+  if (syncFeedbackTimeout) {
+    clearTimeout(syncFeedbackTimeout);
+  }
+  if (message) {
+    syncFeedbackTimeout = window.setTimeout(() => {
+      syncFeedback.textContent = "";
+    }, 3000);
+  }
 }
