@@ -1,28 +1,40 @@
-# Pagina-calendario-custom
+# Calendario Personalizado con IA
 
-Aplicación web de calendario que propone estilos visuales personalizados según
-las preferencias del usuario usando una lógica inspirada en IA.
+Aplicación web que diseña un calendario temático según la descripción que ingresa
+la persona usuaria. El aspecto visual se genera en vivo consultando la API de
+OpenAI, por lo que las combinaciones de colores, tipografías y explicaciones se
+adaptan a cada pedido.
 
-## Características
+## Características principales
 
-- Motor semántico que identifica colores, moods y descriptores en tu mensaje.
-- Sugerencias curadas más una propuesta generada dinámicamente con tu estilo.
-- Explicaciones en lenguaje natural sobre por qué cada tema fue elegido.
-- Calendario navegable por meses que adopta al instante el tema seleccionado.
+- Formulario para describir cómo debería verse el calendario.
+- Llamada directa a un modelo de OpenAI que devuelve entre 3 y 5 estilos en
+  formato JSON listo para aplicar.
+- Paletas, tokens de diseño y explicaciones creadas por la IA para cada
+  propuesta.
+- Calendario navegable por meses que adopta al instante el estilo elegido.
+- Opción de restablecer la clave de API almacenada desde la consola del
+  navegador (`resetStoredApiKey()`).
 
-## Cómo usar
+## Requisitos previos
 
-1. Abrí `index.html` en tu navegador favorito.
-2. Contá qué estilo imaginás para tu calendario.
-3. Elegí una de las propuestas inteligentes y explorá el calendario con el tema
-   seleccionado.
+Necesitás una API key válida de OpenAI con acceso al modelo `gpt-4o-mini` o
+compatible.
 
-## Desarrollo
+## Cómo usar la aplicación
 
-Para trabajar con la página en local podés levantar un servidor estático:
+1. Cloná el repositorio o descargá los archivos.
+2. Abrí `index.html` directamente en tu navegador o servilo de forma local con:
 
-```bash
-python -m http.server 8000
-```
+   ```bash
+   python -m http.server 8000
+   ```
 
-Luego visitá `http://localhost:8000/index.html` para probar los cambios.
+   Después ingresá en `http://localhost:8000/index.html`.
+3. Al solicitar estilos por primera vez la app te pedirá tu API key. Se guarda
+   únicamente en el `localStorage` del navegador.
+4. Escribí qué estética buscás y hacé clic en **“Pedir sugerencias inteligentes”**.
+5. Elegí una de las propuestas generadas para ver el calendario con ese tema.
+
+Si querés borrar la clave guardada, abrí la consola del navegador y ejecutá
+`resetStoredApiKey()`.
