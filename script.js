@@ -9,6 +9,16 @@ const calendarMonthLabel = document.getElementById("calendar-month");
 const calendarThemeLabel = document.getElementById("calendar-theme");
 const prevMonthBtn = document.getElementById("prev-month");
 const nextMonthBtn = document.getElementById("next-month");
+const heroSection = document.querySelector(".hero");
+const preferencesSection = document.querySelector(".preferences");
+const suggestionsSection = document.querySelector(".suggestions");
+
+const eventModal = document.getElementById("event-modal");
+const eventForm = document.getElementById("event-form");
+const eventTitleInput = document.getElementById("event-title");
+const eventTimeInput = document.getElementById("event-time");
+const eventDateLabel = document.getElementById("event-date-label");
+const closeEventModalBtn = document.getElementById("close-event-modal");
 
 const monthNames = [
   "Enero",
@@ -190,11 +200,22 @@ const state = {
   currentDate: new Date(),
   selectedTheme: DEFAULT_THEME,
   isLoading: false,
+  events: {},
+  themeLocked: false,
+  activeDateKey: null,
 };
 
 styleForm.addEventListener("submit", handleFormSubmit);
 prevMonthBtn.addEventListener("click", () => changeMonth(-1));
 nextMonthBtn.addEventListener("click", () => changeMonth(1));
+eventForm.addEventListener("submit", handleEventSubmit);
+closeEventModalBtn.addEventListener("click", closeEventModal);
+eventModal.addEventListener("click", (event) => {
+  if (event.target === eventModal) {
+    closeEventModal();
+  }
+});
+document.addEventListener("keydown", handleGlobalKeydown);
 
 applyTheme(DEFAULT_THEME);
 renderCalendar();
@@ -203,6 +224,9 @@ calendarContainer.classList.remove("hidden");
 
 async function handleFormSubmit(event) {
   event.preventDefault();
+  if (state.themeLocked) {
+    return;
+  }
   const preferences = styleInput.value.trim();
   if (!preferences) return;
 
@@ -276,6 +300,7 @@ function createSuggestionCard(suggestion, index) {
     state.selectedTheme = suggestion;
     applyTheme(suggestion);
     highlightSelectedCard(node);
+    finalizeThemeSelection();
   });
 
   if (state.selectedTheme && state.selectedTheme === suggestion) {
@@ -289,6 +314,19 @@ function highlightSelectedCard(selectedNode) {
   suggestionList.querySelectorAll(".suggestion-card").forEach((card) => {
     card.classList.toggle("selected", card === selectedNode);
   });
+}
+
+function finalizeThemeSelection() {
+  if (state.themeLocked) return;
+  state.themeLocked = true;
+  heroSection?.classList.add("collapsed");
+  preferencesSection?.classList.add("collapsed");
+  suggestionsSection?.classList.add("collapsed");
+  if (emptyState) {
+    emptyState.textContent = "";
+  }
+  suggestionList.innerHTML = "";
+  styleForm.reset();
 }
 
 function applyTheme(theme) {
@@ -383,9 +421,13 @@ function renderCalendar() {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const today = new Date();
   for (let day = 1; day <= daysInMonth; day += 1) {
+    const dateKey = buildDateKey(year, month, day);
     const cell = document.createElement("div");
-    cell.className = "calendar-cell";
-    cell.textContent = day;
+    cell.className = "calendar-cell day-cell";
+    cell.dataset.dateKey = dateKey;
+    cell.setAttribute("role", "button");
+    cell.setAttribute("aria-label", buildCellAriaLabel(year, month, day));
+    cell.tabIndex = 0;
 
     if (
       day === today.getDate() &&
@@ -395,8 +437,116 @@ function renderCalendar() {
       cell.classList.add("today");
     }
 
+    const eventsContainer = document.createElement("div");
+    eventsContainer.className = "events-container";
+
+    const eventsForDay = getEventsForDate(dateKey);
+    if (eventsForDay.length) {
+      cell.classList.add("has-events");
+      eventsForDay.forEach((event) => {
+        const eventChip = document.createElement("div");
+        eventChip.className = "event-chip";
+
+        const timeElement = document.createElement("strong");
+        timeElement.textContent = event.time;
+
+        const titleElement = document.createElement("span");
+        titleElement.textContent = event.title;
+
+        eventChip.appendChild(timeElement);
+        eventChip.appendChild(titleElement);
+        eventsContainer.appendChild(eventChip);
+      });
+    }
+
+    const dayNumber = document.createElement("span");
+    dayNumber.className = "day-number";
+    dayNumber.textContent = day;
+
+    cell.appendChild(eventsContainer);
+    cell.appendChild(dayNumber);
+
+    cell.addEventListener("click", () => openEventModal(dateKey));
+    cell.addEventListener("keydown", (event) => handleDayKeydown(event, dateKey));
+
     calendarGrid.appendChild(cell);
   }
+}
+
+function buildDateKey(year, monthIndex, day) {
+  return `${year}-${String(monthIndex + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function buildCellAriaLabel(year, monthIndex, day) {
+  const key = buildDateKey(year, monthIndex, day);
+  const base = `${day} de ${monthNames[monthIndex]} de ${year}`;
+  const events = getEventsForDate(key);
+  if (!events.length) return base;
+  const suffix = events.length === 1 ? "1 evento" : `${events.length} eventos`;
+  return `${base}, ${suffix}`;
+}
+
+function getEventsForDate(dateKey) {
+  const events = state.events[dateKey] || [];
+  return [...events].sort((a, b) => a.time.localeCompare(b.time));
+}
+
+function openEventModal(dateKey) {
+  state.activeDateKey = dateKey;
+  eventForm.reset();
+  eventModal.classList.remove("hidden");
+  document.body.classList.add("modal-open");
+  eventDateLabel.textContent = formatDateLabel(dateKey);
+  window.setTimeout(() => eventTimeInput.focus(), 50);
+}
+
+function closeEventModal() {
+  eventModal.classList.add("hidden");
+  document.body.classList.remove("modal-open");
+  state.activeDateKey = null;
+}
+
+function handleEventSubmit(event) {
+  event.preventDefault();
+  const title = eventTitleInput.value.trim();
+  const time = eventTimeInput.value;
+
+  if (!title || !time || !state.activeDateKey) {
+    return;
+  }
+
+  if (!state.events[state.activeDateKey]) {
+    state.events[state.activeDateKey] = [];
+  }
+
+  state.events[state.activeDateKey].push({
+    title,
+    time,
+  });
+
+  state.events[state.activeDateKey].sort((a, b) => a.time.localeCompare(b.time));
+
+  renderCalendar();
+  closeEventModal();
+}
+
+function handleDayKeydown(event, dateKey) {
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    openEventModal(dateKey);
+  }
+}
+
+function handleGlobalKeydown(event) {
+  if (event.key === "Escape" && !eventModal.classList.contains("hidden")) {
+    closeEventModal();
+  }
+}
+
+function formatDateLabel(dateKey) {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const readableMonth = monthNames[month - 1] || "";
+  return `${day} de ${readableMonth} de ${year}`;
 }
 
 function analyzePreferences(preferences) {

@@ -81,6 +81,43 @@
       </section>
     </main>
 
+    <div
+      id="event-modal"
+      class="modal hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="event-modal-title"
+    >
+      <div class="modal-content">
+        <button
+          type="button"
+          class="modal-close"
+          id="close-event-modal"
+          aria-label="Cerrar"
+        >
+          ×
+        </button>
+        <h3 id="event-modal-title">Agregar evento</h3>
+        <p id="event-date-label" class="event-date-label"></p>
+        <form id="event-form" class="modal-form">
+          <label for="event-time">Hora</label>
+          <input type="time" id="event-time" name="time" required />
+
+          <label for="event-title">Evento</label>
+          <input
+            type="text"
+            id="event-title"
+            name="title"
+            placeholder="Ej: Reunión con el equipo"
+            maxlength="80"
+            required
+          />
+
+          <button type="submit" class="primary-button">Guardar evento</button>
+        </form>
+      </div>
+    </div>
+
     <template id="suggestion-card-template">
       <article class="suggestion-card" role="listitem">
         <div class="palette" aria-hidden="true"></div>
