@@ -1,25 +1,19 @@
 # Calendario Personalizado con IA
 
 Aplicación web que diseña un calendario temático según la descripción que ingresa
-la persona usuaria. El aspecto visual se genera en vivo consultando la API de
-OpenAI, por lo que las combinaciones de colores, tipografías y explicaciones se
-adaptan a cada pedido.
+la persona usuaria. El aspecto visual se genera en vivo con un motor heurístico
+que interpreta palabras clave y compone varias propuestas coherentes sin
+necesitar servicios externos.
 
 ## Características principales
 
 - Formulario para describir cómo debería verse el calendario.
-- Llamada directa a un modelo de OpenAI que devuelve entre 3 y 5 estilos en
-  formato JSON listo para aplicar.
-- Paletas, tokens de diseño y explicaciones creadas por la IA para cada
+- Motor de IA embebido que analiza colores, referencias y estados de ánimo
+  mencionados y devuelve entre 3 y 4 estilos listos para aplicar.
+- Paletas, tokens de diseño y explicaciones creadas dinámicamente para cada
   propuesta.
 - Calendario navegable por meses que adopta al instante el estilo elegido.
-- Opción de restablecer la clave de API almacenada desde la consola del
-  navegador (`resetStoredApiKey()`).
-
-## Requisitos previos
-
-Necesitás una API key válida de OpenAI con acceso al modelo `gpt-4o-mini` o
-compatible.
+- Vista previa accesible con contraste ajustado automáticamente según el tema.
 
 ## Cómo usar la aplicación
 
@@ -31,10 +25,9 @@ compatible.
    ```
 
    Después ingresá en `http://localhost:8000/index.html`.
-3. Al solicitar estilos por primera vez la app te pedirá tu API key. Se guarda
-   únicamente en el `localStorage` del navegador.
-4. Escribí qué estética buscás y hacé clic en **“Pedir sugerencias inteligentes”**.
-5. Elegí una de las propuestas generadas para ver el calendario con ese tema.
+3. Escribí qué estética buscás y hacé clic en **“Pedir sugerencias inteligentes”**.
+4. Explorá las propuestas sugeridas, elegí tu favorita y mirá cómo cambia el calendario.
 
-Si querés borrar la clave guardada, abrí la consola del navegador y ejecutá
-`resetStoredApiKey()`.
+> El motor interpreta términos como "oscuro", "pastel", "elegante" o referencias
+> estacionales (Navidad, primavera, etc.) para adaptar las paletas, las tipografías
+> y el tipo de fondo sin depender de una conexión a internet adicional.
