@@ -1098,8 +1098,8 @@ function initializeSession() {
   populateNameSuggestions(users);
 
   const lastUser = localStorage.getItem(LAST_USER_KEY);
-  const defaultDevice = detectDefaultDevice();
   const stored = lastUser ? users[normalizeName(lastUser)] : null;
+  const initialDevice = resolvePreferredDevice(stored?.profile?.device);
 
   if (sessionNameInput) {
     if (stored?.name) {
@@ -1115,8 +1115,8 @@ function initializeSession() {
     sessionCodeInput.value = stored?.profile?.code || "";
   }
 
-  selectDeviceRadio(stored?.profile?.device || defaultDevice);
-  applyDeviceClass(stored?.profile?.device || defaultDevice);
+  selectDeviceRadio(initialDevice);
+  applyDeviceClass(initialDevice);
   showSessionScreen(Boolean(lastUser));
 }
 
@@ -1199,7 +1199,9 @@ function handleNameInputChange() {
   const users = getStoredUsers();
   const record = users[normalizeName(value)];
   if (record?.profile?.device) {
-    selectDeviceRadio(record.profile.device);
+    selectDeviceRadio(resolvePreferredDevice(record.profile.device));
+  } else {
+    selectDeviceRadio(resolvePreferredDevice());
   }
 }
 
@@ -1226,12 +1228,13 @@ function showSessionScreen(prefillCurrent = false) {
 
   if (prefillCurrent && state.profile?.name && sessionNameInput) {
     sessionNameInput.value = state.profile.name;
-    selectDeviceRadio(state.profile.device || detectDefaultDevice());
+    const preferredDevice = resolvePreferredDevice(state.profile.device);
+    selectDeviceRadio(preferredDevice);
     if (sessionCodeInput) {
       sessionCodeInput.value = state.profile.code || "";
     }
   } else if (sessionNameInput && !sessionNameInput.value) {
-    selectDeviceRadio(detectDefaultDevice());
+    selectDeviceRadio(resolvePreferredDevice());
   }
 
   window.setTimeout(() => sessionNameInput?.focus(), 80);
@@ -1275,6 +1278,14 @@ function detectDefaultDevice() {
     return "desktop";
   }
   return window.matchMedia("(max-width: 768px)").matches ? "mobile" : "desktop";
+}
+
+function resolvePreferredDevice(storedDevice) {
+  const detected = detectDefaultDevice();
+  if (!storedDevice) {
+    return detected;
+  }
+  return storedDevice === detected ? storedDevice : detected;
 }
 
 function applyDeviceClass(device) {
