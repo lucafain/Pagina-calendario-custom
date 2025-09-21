@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Calendario Personalizado con IA</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&family=Space+Grotesk:wght@400;600&family=Playfair+Display:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="hero">
+        <h1>Diseña tu calendario soñado</h1>
+        <p>
+          Describe el estilo que imaginás y nuestra IA te sugerirá distintas
+          opciones visuales para tu calendario. ¡Elegí la que más te guste y se
+          generará al instante!
+        </p>
+      </header>
+
+      <section class="preferences" aria-labelledby="preferences-title">
+        <div class="card">
+          <h2 id="preferences-title">Contanos tu estilo</h2>
+          <form id="preferences-form">
+            <label for="style-input">
+              ¿Cómo querés que se vea tu calendario? Podés mencionar colores,
+              estados de ánimo o referencias de estilo.
+            </label>
+            <textarea
+              id="style-input"
+              name="style"
+              placeholder="Ej: Quiero algo oscuro, elegante y minimalista"
+              rows="3"
+              required
+            ></textarea>
+            <button type="submit" class="primary-button">
+              Pedir sugerencias inteligentes
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <section class="suggestions" aria-live="polite">
+        <h2>Sugerencias generadas por IA</h2>
+        <p class="empty-state">Ingresá tus preferencias para ver propuestas.</p>
+        <div id="suggestion-list" class="suggestion-list" role="list"></div>
+      </section>
+
+      <section class="calendar-section" aria-live="polite">
+        <h2>Vista previa del calendario</h2>
+        <div id="calendar-container" class="calendar hidden">
+          <div class="calendar-header">
+            <button
+              type="button"
+              class="nav-button"
+              id="prev-month"
+              aria-label="Mes anterior"
+            >
+              ◀
+            </button>
+            <div>
+              <p id="calendar-month" class="calendar-month"></p>
+              <p id="calendar-theme" class="calendar-theme"></p>
+            </div>
+            <button
+              type="button"
+              class="nav-button"
+              id="next-month"
+              aria-label="Mes siguiente"
+            >
+              ▶
+            </button>
+          </div>
+          <div class="calendar-grid" role="grid"></div>
+        </div>
+      </section>
+    </main>
+
+    <template id="suggestion-card-template">
+      <article class="suggestion-card" role="listitem">
+        <div class="palette" aria-hidden="true"></div>
+        <div class="suggestion-content">
+          <h3 class="suggestion-title"></h3>
+          <p class="suggestion-description"></p>
+          <button type="button" class="secondary-button">Elegir este estilo</button>
+        </div>
+      </article>
+    </template>
+
+    <script src="script.js" defer></script>
+  </body>
+</html>
