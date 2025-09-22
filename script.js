@@ -1203,6 +1203,10 @@ function handleNameInputChange() {
   } else {
     selectDeviceRadio(resolvePreferredDevice());
   }
+
+  if (sessionCodeInput && record?.profile?.code) {
+    sessionCodeInput.value = record.profile.code;
+  }
 }
 
 function hydrateStateFromSnapshot(snapshot) {
