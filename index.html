@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Calendario Personalizado con IA</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&family=Space+Grotesk:wght@400;600&family=Playfair+Display:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <section
+      id="session-screen"
+      class="session-screen"
+      aria-labelledby="session-title"
+    >
+      <form id="session-form" class="session-card" novalidate>
+        <h2 id="session-title">Empecemos por tu perfil</h2>
+        <p>
+          Contanos tu nombre, el dispositivo que estás usando y elegí el código
+          con el que vas a volver a entrar a tu calendario.
+        </p>
+        <label for="session-name">¿Cómo te llamás?</label>
+        <input
+          type="text"
+          id="session-name"
+          name="name"
+          autocomplete="name"
+          required
+          list="known-users"
+        />
+        <datalist id="known-users"></datalist>
+        <fieldset class="device-options">
+          <legend>¿Desde dónde estás entrando?</legend>
+          <label>
+            <input type="radio" name="device" value="mobile" required />
+            Celular
+          </label>
+          <label>
+            <input type="radio" name="device" value="desktop" />
+            Computadora
+          </label>
+        </fieldset>
+        <label for="session-code" class="sync-label">Elegí tu código personal</label>
+        <input
+          type="text"
+          id="session-code"
+          name="account-code"
+          maxlength="32"
+          pattern="[A-Za-z0-9_-]{4,32}"
+          placeholder="Ej: mi-calendario-2024"
+          autocomplete="off"
+          required
+        />
+        <p class="session-hint">
+          Usá entre 4 y 32 caracteres. Podés combinar letras, números, guiones y
+          guiones bajos.
+        </p>
+        <label for="sync-input" class="sync-label">
+          ¿Tenés un código guardado? Pegalo acá (opcional)
+        </label>
+        <textarea
+          id="sync-input"
+          name="sync"
+          rows="2"
+          placeholder="Ej: mi-calendario-2024::AAECAwQ..."
+        ></textarea>
+        <p id="session-error" class="session-error" role="alert" aria-live="assertive"></p>
+        <button type="submit" class="primary-button">Continuar</button>
+      </form>
+    </section>
+
+    <main class="app hidden" id="app-root">
+      <header class="hero">
+        <h1>Diseña tu calendario soñado</h1>
+        <p>
+          Describe el estilo que imaginás y nuestra IA te sugerirá distintas
+          opciones visuales para tu calendario. ¡Elegí la que más te guste y se
+          generará al instante!
+        </p>
+      </header>
+
+      <section class="session-info hidden" id="session-info" aria-live="polite">
+        <div class="card session-summary">
+          <div class="session-summary-header">
+            <h2 id="session-greeting">¡Hola!</h2>
+            <button type="button" class="link-button" id="switch-user">
+              Cambiar de persona
+            </button>
+          </div>
+          <p id="session-device" class="session-device"></p>
+          <p id="session-theme" class="session-theme"></p>
+          <p id="session-code-display" class="session-code-display"></p>
+          <div class="sync-area">
+            <p class="sync-description">
+              Copiá tu código completo para restaurar el calendario en otro
+              dispositivo. Incluye tu alias y toda la información guardada.
+            </p>
+            <div class="sync-code-box">
+              <code id="sync-code" tabindex="0"></code>
+              <button type="button" class="secondary-button" id="copy-sync-button">
+                Copiar código
+              </button>
+            </div>
+            <p id="sync-feedback" class="sync-feedback" aria-live="polite"></p>
+          </div>
+        </div>
+      </section>
+
+      <section class="preferences" aria-labelledby="preferences-title">
+        <div class="card">
+          <h2 id="preferences-title">Contanos tu estilo</h2>
+          <form id="preferences-form">
+            <label for="style-input">
+              ¿Cómo querés que se vea tu calendario? Podés mencionar colores,
+              estados de ánimo o referencias de estilo.
+            </label>
+            <textarea
+              id="style-input"
+              name="style"
+              placeholder="Ej: Quiero algo oscuro, elegante y minimalista"
+              rows="3"
+              required
+            ></textarea>
+            <button type="submit" class="primary-button">
+              Pedir sugerencias inteligentes
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <section class="suggestions" aria-live="polite">
+        <h2>Sugerencias generadas por IA</h2>
+        <p class="empty-state">Ingresá tus preferencias para ver propuestas.</p>
+        <div id="suggestion-list" class="suggestion-list" role="list"></div>
+      </section>
+
+      <section class="calendar-section" aria-live="polite">
+        <h2>Vista previa del calendario</h2>
+        <div id="calendar-container" class="calendar hidden">
+          <div class="calendar-header">
+            <button
+              type="button"
+              class="nav-button"
+              id="prev-month"
+              aria-label="Mes anterior"
+            >
+              ◀
+            </button>
+            <div>
+              <p id="calendar-month" class="calendar-month"></p>
+              <p id="calendar-theme" class="calendar-theme"></p>
+            </div>
+            <button
+              type="button"
+              class="nav-button"
+              id="next-month"
+              aria-label="Mes siguiente"
+            >
+              ▶
+            </button>
+          </div>
+          <div class="calendar-grid-wrapper">
+            <div class="calendar-grid" role="grid"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="integrations" aria-labelledby="integrations-title">
+        <div class="card integration-card">
+          <div class="integration-header">
+            <div>
+              <h2 id="integrations-title">Sincronizá con tu calendario iCal</h2>
+              <p id="ical-status" class="integration-status"></p>
+            </div>
+          </div>
+          <form id="ical-form" class="integration-form" novalidate>
+            <label for="ical-input">
+              Pegá tu enlace o código de inserción iCal. También podés copiar el
+              contenido de un archivo <code>.ics</code>.
+            </label>
+            <textarea
+              id="ical-input"
+              name="ical"
+              rows="3"
+              placeholder="Ej: https://calendar.google.com/calendar/ical/tuagenda/basic.ics"
+            ></textarea>
+            <div class="integration-actions">
+              <button type="submit" class="secondary-button">
+                Agregar eventos de iCal
+              </button>
+              <button
+                type="button"
+                class="link-button"
+                id="clear-ical-button"
+              >
+                Quitar calendario iCal
+              </button>
+            </div>
+            <p
+              id="ical-feedback"
+              class="integration-feedback"
+              aria-live="polite"
+            ></p>
+          </form>
+        </div>
+      </section>
+    </main>
+
+    <div
+      id="event-modal"
+      class="modal hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="event-modal-title"
+    >
+      <div class="modal-content">
+        <button
+          type="button"
+          class="modal-close"
+          id="close-event-modal"
+          aria-label="Cerrar"
+        >
+          ×
+        </button>
+        <h3 id="event-modal-title">Agregar evento</h3>
+        <p id="event-date-label" class="event-date-label"></p>
+        <form id="event-form" class="modal-form">
+          <label for="event-time">Hora</label>
+          <input type="time" id="event-time" name="time" required />
+
+          <label for="event-title">Evento</label>
+          <input
+            type="text"
+            id="event-title"
+            name="title"
+            placeholder="Ej: Reunión con el equipo"
+            maxlength="80"
+            required
+          />
+
+          <button type="submit" class="primary-button">Guardar evento</button>
+        </form>
+      </div>
+    </div>
+
+    <template id="suggestion-card-template">
+      <article class="suggestion-card" role="listitem">
+        <div class="palette" aria-hidden="true"></div>
+        <div class="suggestion-content">
+          <h3 class="suggestion-title"></h3>
+          <p class="suggestion-description"></p>
+          <p class="suggestion-explanation"></p>
+          <button type="button" class="secondary-button">Elegir este estilo</button>
+        </div>
+      </article>
+    </template>
+
+    <script src="script.js" defer></script>
+  </body>
+</html>
